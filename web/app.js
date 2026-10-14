@@ -92,7 +92,14 @@ function setCurrentState(state) {
     PHONE: { badge: 'PHONE SEEN', icon: '▣', title: 'Phone detected', subtitle: 'Phone voice', headline: 'Put your phone away', description: 'Move the phone out of camera view.', badgeClass: 'status-alert' },
     BOTH: { badge: 'BOTH ALERTS', icon: '!', title: 'Eyes closed + phone detected', subtitle: 'Eye voice first · phone voice next', headline: 'Two reminders active', description: 'Open your eyes. The phone reminder plays next if the phone is still visible.', badgeClass: 'status-alert' },
     NO_FACE: { badge: 'FACE NOT SEEN', icon: '◉', title: 'Face not in view', subtitle: '', headline: 'Move into view', description: 'Sit where the camera can see your face and eyes.', badgeClass: 'status-alert' },
-    MODELS: { badge: 'LOADING', icon: '✳', title: 'Getting ready', subtitle: 'Loading…', headline: 'One moment', description: 'Keep this page open while detection starts.', badgeClass: 'status-idle' },
+    MODELS: {
+      badge: 'LOADING', icon: '✳',
+      title: faceTask ? 'Eyes ready' : phoneModel ? 'Phone ready' : 'Getting ready',
+      subtitle: faceTask ? 'Phone detector is loading…' : phoneModel ? 'Eye detector is loading…' : 'First load may take a little while',
+      headline: faceTask ? 'Eye alerts are active' : phoneModel ? 'Phone alerts are active' : 'Preparing detection',
+      description: faceTask ? 'Phone reminders will start when its model finishes loading.' : phoneModel ? 'Eye reminders will start when its model finishes loading.' : 'Keep this page open while the eye and phone models download.',
+      badgeClass: 'status-idle',
+    },
   }[state];
   if (!values) return;
   ui.badge.className = `status-badge ${values.badgeClass}`;
@@ -337,10 +344,29 @@ async function loadModels() {
   }
   modelLoading = true;
   setCurrentState('MODELS');
-  setModelStatus('Loading detection…');
+  setModelStatus(faceTask || phoneModel ? 'Loading remaining detector…' : 'First load: downloading detection models…');
+  const updateProgress = () => {
+    if (faceTask && phoneModel) {
+      setModelStatus('Detection ready', 'good');
+    } else if (faceTask) {
+      setModelStatus('Eyes ready · phone detector loading…');
+    } else if (phoneModel) {
+      setModelStatus('Phone ready · eye detector loading…');
+    }
+    if (displayedState === 'MODELS') {
+      displayedState = null;
+      setCurrentState('MODELS');
+    }
+  };
+  const facePromise = faceTask
+    ? Promise.resolve(faceTask)
+    : createFaceTask().then((model) => { faceTask = model; updateProgress(); return model; });
+  const phonePromise = phoneModel
+    ? Promise.resolve(phoneModel)
+    : createPhoneModel().then((model) => { phoneModel = model; updateProgress(); return model; });
   const [faceResult, phoneResult] = await Promise.allSettled([
-    faceTask ? Promise.resolve(faceTask) : createFaceTask(),
-    phoneModel ? Promise.resolve(phoneModel) : createPhoneModel(),
+    facePromise,
+    phonePromise,
   ]);
   if (faceResult.status === 'fulfilled') faceTask = faceResult.value;
   if (phoneResult.status === 'fulfilled') phoneModel = phoneResult.value;
@@ -609,7 +635,7 @@ function onPhonePredictions(predictions, now) {
 
 function updateSessionUI(now, delta, eyeAlert, faceFound) {
   const phoneActive = phoneIsActive && now - lastPhoneAt <= PHONE_HOLD_MS;
-  const state = eyeAlert && phoneActive ? 'BOTH' : eyeAlert ? 'EYES' : phoneActive ? 'PHONE' : !faceTask ? 'MODELS' : !faceFound ? 'NO_FACE' : 'FOCUSED';
+  const state = eyeAlert && phoneActive ? 'BOTH' : eyeAlert ? 'EYES' : phoneActive ? 'PHONE' : (!faceTask || !phoneModel) ? 'MODELS' : !faceFound ? 'NO_FACE' : 'FOCUSED';
   setCurrentState(state);
 
   const distracted = phoneActive || eyeAlert;

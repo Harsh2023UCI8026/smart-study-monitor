@@ -17,7 +17,7 @@ This is a static, full-screen-friendly website version of the desktop prototype.
    .\.venv\Scripts\python.exe -m http.server 8000 --directory web
    ```
 3. Open `http://localhost:8000` in Chrome or Edge.
-4. Choose **Start study**, allow camera access, and wait for the status to say **Detection ready**. The first model load needs an internet connection.
+4. Choose **Start study** and allow camera access. On the first visit, the browser downloads the eye and phone detection models, so loading may take longer on a slow connection. Keep the page open; the app shows when each detector is ready, starts using the first one as soon as it loads, and later visits may reuse the browser cache.
 5. Use the square-corners button in the header for full screen. Press `Esc` to leave full screen.
 6. Keep the camera at eye level, face the camera, and light both eyes well. Use **Calibrate eyes** while looking at the camera with your eyes open. Eye alerts wait for both eyes to look closed for 0.45 seconds, which filters normal blinks. If it misses a real closure, lower **Eye sensitivity** or shorten **Eye alert delay**.
 
