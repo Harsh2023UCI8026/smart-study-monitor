@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#ffffff" />
+    <meta name="description" content="A private, browser-based study companion for eye-closure and phone reminders." />
+    <title>Smart Study Monitor — Study with intention</title>
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+    <link rel="preconnect" href="https://storage.googleapis.com" crossorigin />
+    <link rel="stylesheet" href="styles.css" />
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3"></script>
+    <script type="module" src="app.js"></script>
+  </head>
+  <body>
+    <div class="app-shell" id="appShell">
+      <header class="topbar">
+        <a class="brand" href="#top" aria-label="Smart Study Monitor home">
+          <span class="brand-mark" aria-hidden="true">S</span>
+          <span class="brand-copy"><strong>Study Monitor</strong><small>STUDY WITH FEWER DISTRACTIONS</small></span>
+        </a>
+        <div class="topbar-right">
+          <span class="privacy-pill"><i></i> Camera stays on this device</span>
+          <button class="icon-button" id="fullscreenButton" type="button" title="Enter fullscreen" aria-label="Enter fullscreen">⛶</button>
+          <button class="button button-primary" id="startButton" type="button"><span class="button-dot"></span> Start study</button>
+          <button class="button button-stop hidden" id="stopButton" type="button">End session</button>
+        </div>
+      </header>
+
+      <main id="top" class="dashboard">
+        <section class="camera-card panel">
+          <div class="camera-toolbar">
+            <div>
+              <p class="eyebrow">LIVE CAMERA</p>
+              <h1>Study session</h1>
+            </div>
+            <div class="camera-actions">
+              <label class="camera-select-wrap" for="cameraSelect"><span aria-hidden="true">◉</span>
+                <select id="cameraSelect" aria-label="Choose camera"><option value="">Default camera</option></select>
+              </label>
+              <button class="button button-quiet" id="calibrateButton" type="button" disabled>Calibrate eyes</button>
+            </div>
+          </div>
+
+          <div class="camera-stage" id="cameraStage">
+            <video id="cameraVideo" autoplay playsinline muted></video>
+            <canvas id="overlayCanvas" aria-hidden="true"></canvas>
+            <div class="camera-placeholder" id="cameraPlaceholder">
+              <div class="placeholder-orbit"><span>◉</span></div>
+              <p class="placeholder-title">Ready to study?</p>
+              <p class="placeholder-copy">Get a reminder if your eyes stay closed or your phone is seen.</p>
+              <p class="privacy-detail">Camera video stays on this device. <a href="PRIVACY.md" target="_blank" rel="noreferrer">Privacy details</a></p>
+              <button class="button button-primary placeholder-start" id="placeholderStart" type="button">Start study</button>
+            </div>
+            <div class="camera-topline">
+              <span class="live-indicator" id="liveIndicator"><i></i><span id="cameraLabel">CAMERA OFF</span></span>
+              <span class="mirror-label">MIRRORED PREVIEW</span>
+            </div>
+            <div class="camera-bottomline">
+              <div class="camera-state-icon" id="cameraStateIcon">✦</div>
+              <div><span class="camera-state-title" id="cameraStateTitle">Ready when you are</span><span class="camera-state-subtitle" id="cameraStateSubtitle">Camera processing stays on this device</span></div>
+              <div class="camera-clock" id="sessionClock">00:00:00</div>
+            </div>
+          </div>
+
+          <div class="camera-footnote">
+            <span><span class="tiny-lock">◆</span> Camera video is processed in this browser and never uploaded.</span>
+            <span id="modelStatus" class="model-status">Start camera to begin</span>
+          </div>
+        </section>
+
+        <aside class="side-column">
+          <section class="focus-card panel" id="focusCard">
+            <div class="card-heading"><div><p class="eyebrow">RIGHT NOW</p><h2>Study status</h2></div><span class="status-badge status-idle" id="statusBadge"><i></i> READY</span></div>
+            <div class="focus-meter-wrap">
+              <div class="focus-meter" id="focusMeter"><div class="focus-meter-inner"><strong id="focusScore">—</strong><span>ON TRACK</span></div></div>
+              <div class="focus-copy"><strong id="focusHeadline">Ready to start</strong><p id="focusDescription">We’ll remind you when your eyes stay closed or a phone appears.</p></div>
+            </div>
+            <div class="eye-readout">
+              <div class="eye-readout-head"><span class="metric-label">EYES</span><strong class="eye-status-text" id="eyeStatusText">—</strong><span class="metric-value" id="eyeScore">—</span></div>
+              <div class="meter-track"><span id="eyeMeterFill"></span></div>
+              <div class="eye-state-row"><span id="leftEyeState">LEFT EYE · —</span><span id="rightEyeState">RIGHT EYE · —</span></div>
+              <div class="eye-state-row eye-limit-row"><span id="eyeThresholdLabel">CLOSE LEVEL 38%</span><span id="eyeTimeValue">CLOSED 0.00 / 0.45s</span></div>
+            </div>
+          </section>
+
+          <section class="metrics-grid" aria-label="Study session alerts">
+            <article class="metric-card panel"><span class="metric-icon icon-amber">◉</span><span class="metric-label">EYE ALERTS</span><strong id="eyeAlertCount">0</strong><small>this session</small></article>
+            <article class="metric-card panel"><span class="metric-icon icon-violet">▣</span><span class="metric-label">PHONE ALERTS</span><strong id="phoneAlertCount">0</strong><small>this session</small></article>
+          </section>
+
+          <section class="settings-card panel">
+            <div class="card-heading settings-heading"><div><p class="eyebrow">SETTINGS</p><h2>Reminders</h2></div></div>
+            <label class="setting-row" for="eyeSensitivity"><span><strong>Eye sensitivity</strong><small>Lower level detects more closures</small></span><span class="setting-control"><output id="eyeSensitivityValue">0.38</output><input id="eyeSensitivity" type="range" min="0.25" max="0.8" step="0.01" value="0.38" aria-label="Eye closure sensitivity" /></span></label>
+            <label class="setting-row" for="closedDuration"><span><strong>Eye alert delay</strong><small>Wait before playing the reminder</small></span><span class="setting-control"><output id="closedDurationValue">0.45s</output><input id="closedDuration" type="range" min="0.25" max="1.5" step="0.05" value="0.45" aria-label="Closed-eye alert delay" /></span></label>
+            <label class="setting-row" for="phoneSensitivity"><span><strong>Phone sensitivity</strong><small>Lower level detects more objects</small></span><span class="setting-control"><output id="phoneSensitivityValue">30%</output><input id="phoneSensitivity" type="range" min="0.15" max="0.85" step="0.05" value="0.30" aria-label="Phone detection sensitivity" /></span></label>
+            <div class="setting-footer"><span>Audio reminders</span><label class="switch"><input id="audioToggle" type="checkbox" checked /><span class="switch-slider"></span><span class="sr-only">Enable voice reminders</span></label></div>
+          </section>
+        </aside>
+      </main>
+
+      <footer class="page-footer"><span>SMART STUDY MONITOR <span class="footer-separator">/</span> A QUIET COMPANION FOR DEEP WORK</span><a href="PRIVACY.md" target="_blank" rel="noreferrer">Privacy & how it works</a></footer>
+      <div class="toast" id="toast" role="status" aria-live="polite"></div>
+      <audio id="eyeAudio" preload="auto" src="assets/eye-closed.mp3"></audio>
+      <audio id="phoneAudio" preload="auto" src="assets/phone-detected.mp3"></audio>
+    </div>
+  </body>
+</html>
